@@ -3,6 +3,7 @@ let sounds = {};
 let playing = new Set();
 let timerId = null;
 let timerEnd = null;
+let timerTotalMs = 0;
 let isPremium = false;
 let fadeEnabled = true;
 
@@ -31,6 +32,10 @@ function initAudio() {
   }
 }
 
+function haptic() {
+  if (navigator.vibrate) navigator.vibrate(6);
+}
+
 function createBuffer(duration, fn) {
   const sr = audioCtx.sampleRate;
   const len = sr * duration;
@@ -45,71 +50,40 @@ function makeWhite() {
 }
 
 function makePink() {
-  // Voss-McCartney pinking
   const sr = audioCtx.sampleRate;
   const len = sr * 2;
   const buf = audioCtx.createBuffer(1, len, sr);
   const out = buf.getChannelData(0);
   const rows = 16;
-  const cols = Math.ceil(len / rows);
   let samples = [];
   for (let i = 0; i < rows; i++) samples.push(Math.random() * 2 - 1);
   let idx = 0;
-  for (let c = 0; c < cols && idx < len; c++) {
+  for (let c = 0; c < len && idx < len; c++) {
     let sum = 0;
     for (let r = 0; r < rows; r++) sum += samples[r];
     out[idx++] = sum / rows;
     for (let r = 0; r < rows; r++) {
-      if (c % (2 ** r) === 0) samples[r] = Math.random() * 2 - 1;
+      if (c % (1 << r) === 0) samples[r] = Math.random() * 2 - 1;
     }
   }
   return buf;
 }
 
 function makeBrown() {
-  return createBuffer(2, (i, sr) => {
-    let last = 0;
-    if (i > 0) last = arguments.callee.last || 0;
+  const sr = audioCtx.sampleRate;
+  const len = sr * 2;
+  const buf = audioCtx.createBuffer(1, len, sr);
+  const data = buf.getChannelData(0);
+  let last = 0;
+  for (let i = 0; i < len; i++) {
     const white = Math.random() * 2 - 1;
-    const val = (last + (0.02 * white)) / 1.02;
-    arguments.callee.last = val;
-    return val * 3.5;
-  });
+    last = (last + (0.02 * white)) / 1.02;
+    data[i] = last * 3.5;
+  }
+  return buf;
 }
 
-function makeRain() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeOcean() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeFan() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeThunder() {
-  return createBuffer(3, () => Math.random() * 2 - 1);
-}
-
-function makeWind() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeFire() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeCrickets() {
-  return createBuffer(2, () => Math.random() * 2 - 1);
-}
-
-function makeDrone() {
-  return createBuffer(2, () => 0);
-}
-
-function makeASMR() {
+function makeNoise() {
   return createBuffer(2, () => Math.random() * 2 - 1);
 }
 
@@ -144,84 +118,95 @@ function buildNode(id) {
     }
     case 'rain': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeRain();
+      src.buffer = makeNoise();
       src.loop = true;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'lowpass';
       filt.frequency.value = 800;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.8;
       src.connect(filt);
-      filt.connect(master);
+      filt.connect(gain);
+      gain.connect(master);
       src.start();
-      return {src, master, vol: 0.35};
+      return {src, master, vol: 0.35, extra: [filt, gain]};
     }
     case 'ocean': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeOcean();
+      src.buffer = makeNoise();
       src.loop = true;
       const lfo = audioCtx.createOscillator();
-      lfo.frequency.value = 0.2;
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.15;
       const lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = 500;
+      lfoGain.gain.value = 400;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = 600;
+      filt.frequency.value = 500;
+      filt.Q.value = 0.5;
       lfo.connect(lfoGain);
       lfoGain.connect(filt.frequency);
       src.connect(filt);
       filt.connect(master);
       src.start();
       lfo.start();
-      return {src, master, vol: 0.4, extra: [lfo, lfoGain]};
+      return {src, master, vol: 0.45, extra: [lfo, lfoGain, filt]};
     }
     case 'fan': {
       const osc = audioCtx.createOscillator();
       osc.type = 'sawtooth';
-      osc.frequency.value = 200;
+      osc.frequency.value = 180;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = 400;
+      filt.frequency.value = 350;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.4;
       osc.connect(filt);
-      filt.connect(master);
+      filt.connect(gain);
+      gain.connect(master);
       osc.start();
-      return {src: osc, master, vol: 0.15};
+      return {src: osc, master, vol: 0.15, extra: [filt, gain]};
     }
     case 'thunder': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeThunder();
+      src.buffer = makeNoise();
       src.loop = true;
       const gate = audioCtx.createGain();
       gate.gain.value = 0;
-      src.connect(gate);
+      const filt = audioCtx.createBiquadFilter();
+      filt.type = 'lowpass';
+      filt.frequency.value = 200;
+      src.connect(filt);
+      filt.connect(gate);
       gate.connect(master);
       src.start();
-      // periodic rumble bursts
       const rumble = () => {
         if (!playing.has('thunder')) return;
         const now = audioCtx.currentTime;
         gate.gain.setValueAtTime(0, now);
-        gate.gain.linearRampToValueAtTime(1, now + 0.5);
-        gate.gain.exponentialRampToValueAtTime(0.01, now + 3 + Math.random() * 4);
-        setTimeout(rumble, 4000 + Math.random() * 6000);
+        gate.gain.linearRampToValueAtTime(1, now + 0.3);
+        gate.gain.exponentialRampToValueAtTime(0.01, now + 2.5 + Math.random() * 3);
+        setTimeout(rumble, 5000 + Math.random() * 7000);
       };
-      setTimeout(rumble, 500);
-      return {src, master, vol: 0.5, extra: [gate]};
+      setTimeout(rumble, 800);
+      return {src, master, vol: 0.5, extra: [gate, filt]};
     }
     case 'wind': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeWind();
+      src.buffer = makeNoise();
       src.loop = true;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'bandpass';
-      filt.frequency.value = 400;
-      filt.Q.value = 0.5;
+      filt.frequency.value = 350;
+      filt.Q.value = 0.4;
       src.connect(filt);
       filt.connect(master);
       src.start();
-      // moving filter
       const lfo = audioCtx.createOscillator();
-      lfo.frequency.value = 0.15;
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.12;
       const lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = 300;
+      lfoGain.gain.value = 250;
       lfo.connect(lfoGain);
       lfoGain.connect(filt.frequency);
       lfo.start();
@@ -229,23 +214,26 @@ function buildNode(id) {
     }
     case 'fire': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeFire();
+      src.buffer = makeNoise();
       src.loop = true;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = 2000;
+      filt.frequency.value = 1800;
+      const gain = audioCtx.createGain();
+      gain.gain.value = 0.6;
       src.connect(filt);
-      filt.connect(master);
+      filt.connect(gain);
+      gain.connect(master);
       src.start();
       // crackle
       const crackleGain = audioCtx.createGain();
       crackleGain.gain.value = 0;
       const crackle = audioCtx.createBufferSource();
-      crackle.buffer = makeFire();
+      crackle.buffer = makeNoise();
       crackle.loop = true;
       const hf = audioCtx.createBiquadFilter();
       hf.type = 'highpass';
-      hf.frequency.value = 3000;
+      hf.frequency.value = 2500;
       crackle.connect(hf);
       hf.connect(crackleGain);
       crackleGain.connect(master);
@@ -254,12 +242,12 @@ function buildNode(id) {
         if (!playing.has('fire')) return;
         const now = audioCtx.currentTime;
         crackleGain.gain.setValueAtTime(0, now);
-        crackleGain.gain.linearRampToValueAtTime(0.3 + Math.random()*0.4, now + 0.02);
-        crackleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        setTimeout(snap, 200 + Math.random() * 800);
+        crackleGain.gain.linearRampToValueAtTime(0.3 + Math.random()*0.5, now + 0.015);
+        crackleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        setTimeout(snap, 150 + Math.random() * 900);
       };
       setTimeout(snap, 300);
-      return {src, master, vol: 0.25, extra: [crackle, crackleGain, hf]};
+      return {src, master, vol: 0.25, extra: [crackle, crackleGain, hf, filt, gain]};
     }
     case 'crickets': {
       const osc1 = audioCtx.createOscillator();
@@ -282,19 +270,19 @@ function buildNode(id) {
         if (!playing.has('crickets')) return;
         const now = audioCtx.currentTime;
         gain1.gain.setValueAtTime(0, now);
-        gain1.gain.linearRampToValueAtTime(0.08, now + 0.01);
-        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
+        gain1.gain.linearRampToValueAtTime(0.08, now + 0.008);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
         setTimeout(() => {
           if (!playing.has('crickets')) return;
           const n = audioCtx.currentTime;
           gain2.gain.setValueAtTime(0, n);
-          gain2.gain.linearRampToValueAtTime(0.06, n + 0.01);
-          gain2.gain.exponentialRampToValueAtTime(0.001, n + 0.05);
-        }, 80 + Math.random()*60);
-        setTimeout(chirp, 400 + Math.random()*600);
+          gain2.gain.linearRampToValueAtTime(0.05, n + 0.008);
+          gain2.gain.exponentialRampToValueAtTime(0.001, n + 0.04);
+        }, 60 + Math.random()*50);
+        setTimeout(chirp, 350 + Math.random()*500);
       };
       setTimeout(chirp, 200);
-      return {src: osc1, master, vol: 0.4, extra: [osc2, gain1, gain2]};
+      return {src: osc1, master, vol: 0.35, extra: [osc2, gain1, gain2]};
     }
     case 'drone': {
       const osc1 = audioCtx.createOscillator();
@@ -314,20 +302,21 @@ function buildNode(id) {
     }
     case 'asmr': {
       const src = audioCtx.createBufferSource();
-      src.buffer = makeASMR();
+      src.buffer = makeNoise();
       src.loop = true;
       const filt = audioCtx.createBiquadFilter();
       filt.type = 'lowpass';
-      filt.frequency.value = 3000;
+      filt.frequency.value = 2500;
       const pan = audioCtx.createStereoPanner();
       src.connect(filt);
       filt.connect(pan);
       pan.connect(master);
       src.start();
       const lfo = audioCtx.createOscillator();
-      lfo.frequency.value = 0.1;
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.08;
       const lfoGain = audioCtx.createGain();
-      lfoGain.gain.value = 0.5;
+      lfoGain.gain.value = 0.6;
       lfo.connect(lfoGain);
       lfoGain.connect(pan.pan);
       lfo.start();
@@ -339,6 +328,7 @@ function buildNode(id) {
 
 function toggleSound(id) {
   initAudio();
+  haptic();
   const def = SOUND_DEFS.find(s => s.id === id);
   if (!def.free && !isPremium) {
     showUpgrade();
@@ -348,9 +338,7 @@ function toggleSound(id) {
   if (playing.has(id)) {
     stopSound(id);
   } else {
-    // Free mixing limit
     if (!isPremium && playing.size >= 1) {
-      // Stop others in free version (only 1 at a time)
       [...playing].forEach(sid => stopSound(sid));
     }
     startSound(id);
@@ -390,7 +378,7 @@ function stopSound(id) {
 }
 
 function destroyNode(node) {
-  try { node.src.stop(); } catch(e){}
+  try { if(node.src.stop) node.src.stop(); } catch(e){}
   try { node.src.disconnect(); } catch(e){}
   try { node.master.disconnect(); } catch(e){}
   if (node.extra) {
@@ -420,13 +408,13 @@ function renderGrid() {
   grid.innerHTML = SOUND_DEFS.map(def => {
     const isPlaying = playing.has(def.id);
     const locked = !def.free && !isPremium;
-    const vol = sounds[def.id]?.vol ?? 0.3;
+    const vol = sounds[def.id]?.vol ?? def.vol ?? 0.3;
     return `
       <div class="sound-tile ${isPlaying ? 'playing' : ''} ${locked ? 'locked' : ''}" data-id="${def.id}" onclick="toggleSound('${def.id}')">
         <div class="sound-icon">${def.icon}</div>
         <div class="sound-name">${def.name}</div>
-        <input type="range" class="sound-volume" min="0" max="1" step="0.01" value="${vol}"
-          onclick="event.stopPropagation()" oninput="setVolume('${def.id}',this.value)">
+        ${isPlaying ? `<input type="range" class="sound-volume" min="0.05" max="1" step="0.01" value="${vol}"
+          onclick="event.stopPropagation()" oninput="setVolume('${def.id}',this.value)">` : ''}
       </div>
     `;
   }).join('');
@@ -446,6 +434,8 @@ function updateNowPlaying() {
 }
 
 // Timer
+let selectedPresetMin = 30;
+
 function openTimer() {
   if (!isPremium) {
     showUpgrade();
@@ -456,7 +446,8 @@ function openTimer() {
 
 function startTimer(minutes) {
   clearTimer();
-  timerEnd = Date.now() + minutes * 60000;
+  timerTotalMs = minutes * 60000;
+  timerEnd = Date.now() + timerTotalMs;
   document.getElementById('timerBar').classList.add('active');
   updateTimerDisplay();
   timerId = setInterval(() => {
@@ -473,18 +464,18 @@ function clearTimer() {
   if (timerId) clearInterval(timerId);
   timerId = null;
   timerEnd = null;
+  timerTotalMs = 0;
   document.getElementById('timerBar').classList.remove('active');
 }
 
 function updateTimerDisplay() {
-  if (!timerEnd) return;
+  if (!timerEnd || !timerTotalMs) return;
   const remaining = Math.max(0, timerEnd - Date.now());
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);
   document.getElementById('timerDisplay').textContent = `${mins}:${secs.toString().padStart(2,'0')}`;
-  const total = timerEnd - (timerEnd - remaining - (Date.now() - (timerEnd - remaining))); // simpler
-  const pct = remaining / (document._timerTotal || remaining);
-  document.getElementById('timerProgress').style.width = pct * 100 + '%';
+  const pct = remaining / timerTotalMs;
+  document.getElementById('timerProgress').style.width = (pct * 100) + '%';
 }
 
 function fadeOutAll() {
@@ -523,8 +514,6 @@ function updatePremiumUI() {
 }
 
 function showUpgrade() {
-  // In real app this triggers StoreKit purchase
-  // For demo, we'll simulate with confirm
   if (confirm('Upgrade to Soft Sounds Pro for $3.99?\n\nUnlock all 12 sounds, unlimited mixing, and custom sleep timer.')) {
     isPremium = true;
     localStorage.setItem('softsounds_premium', 'true');
@@ -534,7 +523,6 @@ function showUpgrade() {
 }
 
 function restorePurchases() {
-  // In real app, call StoreKit restoreCompletedTransactions
   alert('In production, this restores your previous purchases from the App Store.');
 }
 
@@ -547,14 +535,14 @@ function loadSettings() {
 }
 
 // Event wiring
-document.getElementById('stopAll').onclick = stopAll;
+document.getElementById('stopAll').onclick = () => { haptic(); stopAll(); };
 document.getElementById('upgradeBtn').onclick = showUpgrade;
 document.getElementById('settingsBtn').onclick = () => document.getElementById('settingsModal').classList.add('open');
 document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').classList.remove('open');
 document.getElementById('closeTimer').onclick = () => document.getElementById('timerModal').classList.remove('open');
 document.getElementById('setTimerBtn').onclick = openTimer;
 document.getElementById('startTimer').onclick = () => {
-  const custom = parseInt(document.getElementById('customMin').value) || 30;
+  const custom = parseInt(document.getElementById('customMin').value) || selectedPresetMin;
   startTimer(custom);
 };
 document.getElementById('cancelTimer').onclick = () => document.getElementById('timerModal').classList.remove('open');
@@ -563,6 +551,16 @@ document.getElementById('fadeToggle').onchange = (e) => {
   fadeEnabled = e.target.checked;
   localStorage.setItem('softsounds_fade', fadeEnabled);
 };
+
+// Timer presets
+document.querySelectorAll('.timer-presets button').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.timer-presets button').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedPresetMin = parseInt(btn.dataset.min);
+    document.getElementById('customMin').value = selectedPresetMin;
+  };
+});
 
 document.querySelectorAll('.modal-backdrop').forEach(el => {
   el.onclick = () => el.closest('.modal').classList.remove('open');
