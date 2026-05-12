@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d0d0d">
+<title>Soft Sounds</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Soft Sounds</h1>
+    <p class="sub">White noise for sleep & focus</p>
+    <button class="settings-btn" id="settingsBtn">
+      <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09A1.65 1.65 0 0 0 9 4.6V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+    </button>
+  </header>
+
+  <div class="now-playing" id="nowPlaying">
+    <div class="np-text">
+      <span id="npLabel">Nothing playing</span>
+      <div class="np-dots" id="npDots"></div>
+    </div>
+    <button class="stop-all" id="stopAll">Stop All</button>
+  </div>
+
+  <div class="timer-bar" id="timerBar">
+    <div class="timer-display" id="timerDisplay"></div>
+    <div class="timer-progress" id="timerProgress"></div>
+  </div>
+
+  <div class="sound-grid" id="soundGrid"></div>
+
+  <div class="upgrade-banner" id="upgradeBanner">
+    <div>
+      <strong>Soft Sounds Pro</strong>
+      <p>Unlock all 12 sounds, unlimited mixing & custom timer</p>
+    </div>
+    <button class="upgrade-btn" id="upgradeBtn">$3.99</button>
+  </div>
+</div>
+
+<!-- Sleep Timer Modal -->
+<div class="modal" id="timerModal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-btn" id="closeTimer">&times;</button>
+    <h2>Sleep Timer</h2>
+    <div class="timer-presets">
+      <button data-min="15">15 min</button>
+      <button data-min="30">30 min</button>
+      <button data-min="60">60 min</button>
+      <button data-min="90">90 min</button>
+    </div>
+    <div class="custom-timer" id="customTimerWrap">
+      <label>Custom (minutes)</label>
+      <input type="number" id="customMin" min="1" max="480" value="45">
+    </div>
+    <button class="btn-primary" id="startTimer">Start Timer</button>
+    <button class="btn-secondary" id="cancelTimer">Cancel</button>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div class="modal" id="settingsModal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-content">
+    <button class="close-btn" id="closeSettings">&times;</button>
+    <h2>Settings</h2>
+    <div class="setting-row" id="timerRow">
+      <span>Sleep Timer</span>
+      <button class="text-btn" id="setTimerBtn">Set</button>
+    </div>
+    <div class="setting-row">
+      <span>Fade out</span>
+      <label class="toggle"><input type="checkbox" id="fadeToggle" checked><span class="toggle-slider"></span></label>
+    </div>
+    <div class="setting-row" id="premiumStatus">
+      <span>Premium</span>
+      <span class="badge" id="premiumBadge">Free</span>
+    </div>
+    <div class="setting-row" id="restoreRow">
+      <button class="text-btn" id="restoreBtn">Restore purchases</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
