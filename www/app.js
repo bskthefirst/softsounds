@@ -32,8 +32,8 @@ function initAudio() {
   }
 }
 
-function haptic() {
-  if (navigator.vibrate) navigator.vibrate(6);
+function haptic(ms = 6) {
+  if (navigator.vibrate) navigator.vibrate(ms);
 }
 
 function createBuffer(duration, fn) {
@@ -225,7 +225,6 @@ function buildNode(id) {
       filt.connect(gain);
       gain.connect(master);
       src.start();
-      // crackle
       const crackleGain = audioCtx.createGain();
       crackleGain.gain.value = 0;
       const crackle = audioCtx.createBufferSource();
@@ -334,7 +333,6 @@ function toggleSound(id) {
     showUpgrade();
     return;
   }
-
   if (playing.has(id)) {
     stopSound(id);
   } else {
@@ -405,12 +403,12 @@ function setVolume(id, val) {
 
 function renderGrid() {
   const grid = document.getElementById('soundGrid');
-  grid.innerHTML = SOUND_DEFS.map(def => {
+  grid.innerHTML = SOUND_DEFS.map((def, idx) => {
     const isPlaying = playing.has(def.id);
     const locked = !def.free && !isPremium;
     const vol = sounds[def.id]?.vol ?? def.vol ?? 0.3;
     return `
-      <div class="sound-tile ${isPlaying ? 'playing' : ''} ${locked ? 'locked' : ''}" data-id="${def.id}" onclick="toggleSound('${def.id}')">
+      <div class="sound-tile ${isPlaying ? 'playing' : ''} ${locked ? 'locked' : ''}" data-id="${def.id}" onclick="toggleSound('${def.id}')" style="animation-delay:${idx * 0.04}s">
         <div class="sound-icon">${def.icon}</div>
         <div class="sound-name">${def.name}</div>
         ${isPlaying ? `<input type="range" class="sound-volume" min="0.05" max="1" step="0.01" value="${vol}"
@@ -423,17 +421,20 @@ function renderGrid() {
 function updateNowPlaying() {
   const label = document.getElementById('npLabel');
   const dots = document.getElementById('npDots');
+  const np = document.getElementById('nowPlaying');
   if (!playing.size) {
     label.textContent = 'Nothing playing';
     dots.innerHTML = '';
+    np.classList.remove('active');
   } else {
     const names = [...playing].map(id => SOUND_DEFS.find(s => s.id === id).name);
     label.textContent = names.join(' + ');
     dots.innerHTML = '<div class="np-dot"></div><div class="np-dot"></div><div class="np-dot"></div>';
+    np.classList.add('active');
   }
 }
 
-// Timer
+// ===== Timer =====
 let selectedPresetMin = 30;
 
 function openTimer() {
@@ -441,11 +442,16 @@ function openTimer() {
     showUpgrade();
     return;
   }
-  document.getElementById('timerModal').classList.add('open');
+  document.querySelectorAll('.timer-presets button').forEach(b => {
+    b.classList.toggle('selected', parseInt(b.dataset.min) === selectedPresetMin);
+  });
+  document.getElementById('customMin').value = selectedPresetMin;
+  springOpen(document.getElementById('timerModal'));
 }
 
 function startTimer(minutes) {
   clearTimer();
+  minutes = Math.max(1, Math.min(480, Math.floor(minutes)));
   timerTotalMs = minutes * 60000;
   timerEnd = Date.now() + timerTotalMs;
   document.getElementById('timerBar').classList.add('active');
@@ -483,6 +489,7 @@ function fadeOutAll() {
     stopAll();
     return;
   }
+  if (!audioCtx) { stopAll(); return; }
   const now = audioCtx.currentTime;
   Object.values(sounds).forEach(node => {
     node.master.gain.setValueAtTime(node.master.gain.value, now);
@@ -491,7 +498,7 @@ function fadeOutAll() {
   setTimeout(() => stopAll(), 8500);
 }
 
-// Premium
+// ===== Premium =====
 function loadPremium() {
   try {
     isPremium = localStorage.getItem('softsounds_premium') === 'true';
@@ -526,7 +533,7 @@ function restorePurchases() {
   alert('In production, this restores your previous purchases from the App Store.');
 }
 
-// Settings
+// ===== Settings =====
 function loadSettings() {
   try {
     fadeEnabled = localStorage.getItem('softsounds_fade') !== 'false';
@@ -534,10 +541,68 @@ function loadSettings() {
   document.getElementById('fadeToggle').checked = fadeEnabled;
 }
 
-// Event wiring
+function springOpen(el) {
+  el.classList.add('open');
+  const content = el.querySelector('.modal-content');
+  if (content) {
+    content.animate([
+      { transform: 'translateY(40px) scale(0.96)', opacity: 0 },
+      { transform: 'translateY(0) scale(1)', opacity: 1 }
+    ], { duration: 450, easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)' });
+  }
+}
+
+// ===== Ambient Canvas =====
+function initAmbient() {
+  const canvas = document.getElementById('ambient');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let w, h, blobs = [];
+  function resize() {
+    w = canvas.width = window.innerWidth;
+    h = canvas.height = window.innerHeight;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  for (let i = 0; i < 5; i++) {
+    blobs.push({
+      x: Math.random() * w, y: Math.random() * h,
+      r: 80 + Math.random() * 150,
+      vx: (Math.random() - 0.5) * 0.2,
+      vy: (Math.random() - 0.5) * 0.2,
+      color: `hsla(${160 + Math.random() * 80}, 55%, 45%, 0.06)`
+    });
+  }
+  function draw() {
+    ctx.clearRect(0, 0, w, h);
+    blobs.forEach(b => {
+      b.x += b.vx; b.y += b.vy;
+      if (b.x < -b.r) b.x = w + b.r;
+      if (b.x > w + b.r) b.x = -b.r;
+      if (b.y < -b.r) b.y = h + b.r;
+      if (b.y > h + b.r) b.y = -b.r;
+      const g = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, b.r);
+      g.addColorStop(0, b.color);
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(b.x - b.r, b.y - b.r, b.r * 2, b.r * 2);
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+}
+
+// ===== Page Visibility =====
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && playing.size) {
+    // Optionally fade slightly when backgrounded — kept subtle
+  }
+});
+
+// ===== Events =====
 document.getElementById('stopAll').onclick = () => { haptic(); stopAll(); };
 document.getElementById('upgradeBtn').onclick = showUpgrade;
-document.getElementById('settingsBtn').onclick = () => document.getElementById('settingsModal').classList.add('open');
+document.getElementById('settingsBtn').onclick = () => springOpen(document.getElementById('settingsModal'));
 document.getElementById('closeSettings').onclick = () => document.getElementById('settingsModal').classList.remove('open');
 document.getElementById('closeTimer').onclick = () => document.getElementById('timerModal').classList.remove('open');
 document.getElementById('setTimerBtn').onclick = openTimer;
@@ -552,7 +617,6 @@ document.getElementById('fadeToggle').onchange = (e) => {
   localStorage.setItem('softsounds_fade', fadeEnabled);
 };
 
-// Timer presets
 document.querySelectorAll('.timer-presets button').forEach(btn => {
   btn.onclick = () => {
     document.querySelectorAll('.timer-presets button').forEach(b => b.classList.remove('selected'));
@@ -566,7 +630,8 @@ document.querySelectorAll('.modal-backdrop').forEach(el => {
   el.onclick = () => el.closest('.modal').classList.remove('open');
 });
 
-// Init
+// ===== Init =====
 loadPremium();
 loadSettings();
 renderGrid();
+initAmbient();

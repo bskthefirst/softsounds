@@ -10,11 +10,12 @@
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
+<canvas id="ambient" class="ambient-canvas"></canvas>
 <div class="app">
   <header>
     <h1>Soft Sounds</h1>
-    <p class="sub">White noise for sleep & focus</p>
-    <button class="settings-btn" id="settingsBtn">
+    <p class="sub">White noise for sleep &amp; focus</p>
+    <button class="settings-btn" id="settingsBtn" aria-label="Settings">
       <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.09A1.65 1.65 0 0 0 9 4.6V4a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
     </button>
   </header>
@@ -29,7 +30,7 @@
 
   <div class="timer-bar" id="timerBar">
     <div class="timer-display" id="timerDisplay"></div>
-    <div class="timer-progress" id="timerProgress"></div>
+    <div class="timer-progress-wrap"><div class="timer-progress" id="timerProgress"></div></div>
   </div>
 
   <div class="sound-grid" id="soundGrid"></div>
@@ -37,7 +38,7 @@
   <div class="upgrade-banner" id="upgradeBanner">
     <div>
       <strong>Soft Sounds Pro</strong>
-      <p>Unlock all 12 sounds, unlimited mixing & custom timer</p>
+      <p>Unlock all 12 sounds, unlimited mixing &amp; custom timer</p>
     </div>
     <button class="upgrade-btn" id="upgradeBtn">$3.99</button>
   </div>
@@ -57,7 +58,7 @@
     </div>
     <div class="custom-timer" id="customTimerWrap">
       <label>Custom (minutes)</label>
-      <input type="number" id="customMin" min="1" max="480" value="45">
+      <input type="number" id="customMin" min="1" max="480" value="30" enterkeyhint="done">
     </div>
     <button class="btn-primary" id="startTimer">Start Timer</button>
     <button class="btn-secondary" id="cancelTimer">Cancel</button>
